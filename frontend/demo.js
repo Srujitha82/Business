@@ -101,6 +101,14 @@
           low_stock: db.products.filter(x => x.stock <= x.reorder_level), inventory_value: db.products.reduce((n, x) => n + x.stock * x.cost, 0) },
           `orders.search(Q.ts >= '${s}')  # then group by day, category, product in Python`);
       }
+      if (p === '/tables') {
+        const all = { products: db.products, customers: db.customers, orders: db.orders };
+        const info = Object.keys(all).map(n => ({ name: n, count: all[n].length }));
+        const name = a.get('name') || 'products', rows = all[name] || [], seen = {};
+        rows.forEach(r => Object.keys(r).forEach(k => { if (k !== 'id') seen[k] = (seen[k] || 0) + 1; }));
+        return out({ tables: info, name, fields: Object.entries(seen).map(([k, c]) => ({ name: k, count: c })), rows: rows.slice(-25).reverse(), total: rows.length },
+          `db.tables(); ${name}.all()  # ${rows.length} documents`);
+      }
       if (p === '/raw') { const t = (arr, lim) => Object.fromEntries(arr.slice(0, lim).map(({ id, ...rest }) => [String(id), rest]));
         return out({ data: { products: t(db.products, 99), customers: t(db.customers, 99), orders: t(db.orders, 6) }, path: 'browser localStorage (demo mode)', note: 'orders trimmed to the first 6 for display' }, 'open(shoppulse.json)  # same layout TinyDB writes to disk'); }
       if (p === '/backup') { const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' })); el.download = 'shoppulse-demo-backup.json'; el.click();

@@ -1,4 +1,4 @@
-const API = 'http://127.0.0.1:5050/api';
+const API = (location.protocol === 'http:' && location.port === '5050') ? '/api' : 'http://127.0.0.1:5050/api';
 const PAL = ['#f5a623', '#38bdf8', '#34d399', '#a78bfa', '#f87171', '#fbbf24', '#60a5fa', '#f472b6'];
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -127,6 +127,20 @@ const views = {
     draw();
   },
 
+  async tables(v) {
+    const cell = x => { if (x == null) return '<span style="color:var(--mute)">-</span>'; if (Array.isArray(x)) return '<span class="tag">' + x.length + ' nested</span> ' + esc(x.map(i => i.qty + 'x ' + i.name).join(', ')); if (typeof x === 'object') return esc(JSON.stringify(x)); return esc(x); };
+    const load = async name => {
+      const d = await api('/tables' + (name ? '?name=' + encodeURIComponent(name) : '')), cols = ['id', ...d.fields.map(f => f.name)];
+      v.innerHTML = `<div class="bar">${d.tables.map(t => `<button class="btn ${t.name === d.name ? '' : 'ghost'}" data-t="${esc(t.name)}">${esc(t.name)} (${t.count})</button>`).join('')}</div>
+        <div class="card"><h2>Fields found in <code>${esc(d.name)}</code> (TinyDB has no fixed schema)</h2>
+        <table><tr>${d.fields.map(f => `<th>${esc(f.name)}</th>`).join('')}</tr><tr>${d.fields.map(f => `<td>${f.count} / ${d.total} docs${f.count < d.total ? ' <span class="tag hot">optional</span>' : ''}</td>`).join('')}</tr></table></div>
+        <div class="card" style="margin-top:16px;overflow:auto"><h2>${esc(d.name)}: showing ${d.rows.length} of ${d.total} documents (newest first)</h2>
+        ${d.rows.length ? `<table><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>${d.rows.map(r => `<tr>${cols.map(c => `<td>${cell(r[c])}</td>`).join('')}</tr>`).join('')}</table>` : '<div class="empty">' + esc(d.note || 'Table is empty') + '</div>'}</div>`;
+      v.onclick = e => { const t = e.target.dataset.t; if (t) run(() => load(t)); };
+    };
+    await load();
+  },
+
   async tools(v) {
     v.innerHTML = `<div class="grid g2"><div class="card"><h2>Data tools</h2><div class="grid">
       <button class="btn" id="t-seed">Load sample data (60 days, resets everything)</button><button class="btn ghost" id="t-merge">Merge another outlet's file…</button>
@@ -143,7 +157,7 @@ const views = {
         options: { indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.x + ' ms' } } }, scales: { x: { title: { display: true, text: 'milliseconds (lower is faster)' } } } } }); });
   }
 };
-const titles = { dashboard: 'Business Dashboard', products: 'Products and Stock', customers: 'Customers', sales: 'Sales', tools: 'Tools and Performance' };
+const titles = { dashboard: 'Business Dashboard', products: 'Products and Stock', customers: 'Customers', sales: 'Sales', tables: 'Database Tables', tools: 'Tools and Performance' };
 async function show(tab) {
   editing = null; killCharts(); $('#view').onclick = null;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
